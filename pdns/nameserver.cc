@@ -129,8 +129,13 @@ void UDPNameserver::bindIPv4()
     locala.sin4.sin_port=htons(::arg().asNum("local-port"));
     g_localaddresses.push_back(locala);
     if(::bind(s, (sockaddr*)&locala, locala.getSocklen()) < 0) {
-      L<<Logger::Error<<"binding UDP socket to '"+localname+"' port "+lexical_cast<string>(ntohs(locala.sin4.sin_port))+": "<<strerror(errno)<<endl;
-      throw AhuException("Unable to bind to UDP socket");
+      if( errno == EADDRNOTAVAIL && ! ::arg().mustDo("local-address-nonexist-fail") ) {
+        L<<Logger::Error<<"IPv4 Address " << localname << " does not exist on this server - skipping UDP bind" << endl;
+        continue;
+      } else {
+        L<<Logger::Error<<"binding UDP socket to '"+locala.toStringWithPort()+": "<<strerror(errno)<<endl;
+        throw PDNSException("Unable to bind to UDP socket");
+      }
     }
     d_sockets.push_back(s);
     L<<Logger::Error<<"UDP server bound to "<<inet_ntoa(locala.sin4.sin_addr)<<":"<<::arg().asNum("local-port")<<endl;
@@ -218,8 +223,13 @@ void UDPNameserver::bindIPv6()
     }
     g_localaddresses.push_back(locala);
     if(::bind(s, (sockaddr*)&locala, sizeof(locala))<0) {
-      L<<Logger::Error<<"binding to UDP ipv6 socket: "<<strerror(errno)<<endl;
-      throw AhuException("Unable to bind to UDP ipv6 socket");
+      if( errno == EADDRNOTAVAIL && ! ::arg().mustDo("local-ipv6-nonexist-fail") ) {
+        L<<Logger::Error<<"IPv6 Address " << localname << " does not exist on this server - skipping UDP bind" << endl;
+        continue;
+      } else {
+        L<<Logger::Error<<"binding to UDP ipv6 socket "<< localname <<": "<<strerror(errno)<<endl;
+        throw AhuException("Unable to bind to UDP ipv6 socket");
+      }
     }
     d_sockets.push_back(s);
     struct pollfd pfd;
