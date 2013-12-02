@@ -254,7 +254,7 @@ PowerDNSLua::PowerDNSLua(const std::string& fname)
 
   lua_newtable(d_lua);
 
-  for(vector<QType::namenum>::const_iterator iter = QType::names.begin(); iter != QType::names.end(); ++iter) {
+  for(map<string,uint16_t>::const_iterator iter = QType::names_map.begin(); iter != QType::names_map.end(); ++iter) {
     lua_pushnumber(d_lua, iter->second);
     lua_setfield(d_lua, -2, iter->first.c_str());
   }
