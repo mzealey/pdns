@@ -30,7 +30,9 @@
 #include "misc.hh"
 #include "lock.hh"
 
-vector<QType::namenum> QType::names;
+map<string,uint16_t> QType::names_map;
+map<uint16_t,string> QType::numbers_map;
+
 // XXX FIXME we need to do something with initializer order here!
 QType::init QType::initializer; 
 
@@ -63,10 +65,8 @@ uint16_t QType::getCode() const
 
 const string QType::getName() const
 {
-  vector<namenum>::iterator pos;
-  for(pos=names.begin();pos<names.end();++pos)
-    if(pos->second==code)
-      return pos->first;
+  if( numbers_map.count(code) )
+      return numbers_map[code];
 
   return "TYPE"+itoa(code);
 }
@@ -79,11 +79,9 @@ QType &QType::operator=(uint16_t n)
 
 int QType::chartocode(const char *p)
 {
-  static QType qt;
-  vector<namenum>::iterator pos;
-  for(pos=names.begin(); pos < names.end(); ++pos)
-    if(pos->first == p)
-      return pos->second;
+  string search = p;
+  if( names_map.count(search) )
+    return names_map[search];
   
   if(*p=='#') {
     return atoi(p+1);
