@@ -452,7 +452,7 @@ inline int DNSReversedBackend::_getAuth(DNSPacket *p, SOAData *soa, const string
 
     // Got a match from a previous backend that was longer than this - no need
     // to continue.
-    if( best_match_len && best_match_len >= (int)diff_point ) {
+    if( best_match_len >= (int)diff_point ) {
         DLOG(L<<Logger::Error<<"Best match was better from a different client"<<endl);
         return GET_AUTH_NEG_DONTCACHE;
     }
