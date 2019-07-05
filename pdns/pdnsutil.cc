@@ -1907,133 +1907,7 @@ int addOrSetMeta(const DNSName& zone, const string& kind, const vector<string>& 
   return 0;
 }
 
-int main(int argc, char** argv)
-try
-{
-  po::options_description desc("Allowed options");
-  desc.add_options()
-    ("help,h", "produce help message")
-    ("version", "show version")
-    ("verbose,v", "be verbose")
-    ("force", "force an action")
-    ("config-name", po::value<string>()->default_value(""), "virtual configuration name")
-    ("config-dir", po::value<string>()->default_value(SYSCONFDIR), "location of pdns.conf")
-    ("commands", po::value<vector<string> >());
-
-  po::positional_options_description p;
-  p.add("commands", -1);
-  po::store(po::command_line_parser(argc, argv).options(desc).positional(p).run(), g_vm);
-  po::notify(g_vm);
-
-  vector<string> cmds;
-
-  if(g_vm.count("commands"))
-    cmds = g_vm["commands"].as<vector<string> >();
-
-  g_verbose = g_vm.count("verbose");
-
-  if (g_vm.count("version")) {
-    cout<<"pdnsutil "<<VERSION<<endl;
-    return 0;
-  }
-
-  if(cmds.empty() || g_vm.count("help") || cmds[0] == "help") {
-    cout<<"Usage: \npdnsutil [options] <command> [params ..]\n"<<endl;
-    cout<<"Commands:"<<endl;
-    cout<<"activate-tsig-key ZONE NAME {master|slave}"<<endl;
-    cout<<"                                   Enable TSIG authenticated AXFR using the key NAME for ZONE"<<endl;
-    cout<<"activate-zone-key ZONE KEY-ID      Activate the key with key id KEY-ID in ZONE"<<endl;
-    cout<<"add-record ZONE NAME TYPE [ttl] content"<<endl;
-    cout<<"             [content..]           Add one or more records to ZONE"<<endl;
-    cout<<"add-zone-key ZONE {zsk|ksk} [BITS] [active|inactive]"<<endl;
-    cout<<"             [rsasha1|rsasha256|rsasha512|ecdsa256|ecdsa384";
-#if defined(HAVE_LIBSODIUM) || defined(HAVE_LIBDECAF)
-    cout<<"|ed25519";
-#endif
-#ifdef HAVE_LIBDECAF
-    cout<<"|ed448";
-#endif
-    cout<<"]"<<endl;
-    cout<<"                                   Add a ZSK or KSK to zone and specify algo&bits"<<endl;
-    cout<<"backend-cmd BACKEND CMD [CMD..]    Perform one or more backend commands"<<endl;
-    cout<<"b2b-migrate OLD NEW                Move all data from one backend to another"<<endl;
-    cout<<"bench-db [filename]                Bench database backend with queries, one domain per line"<<endl;
-    cout<<"check-zone ZONE                    Check a zone for correctness"<<endl;
-    cout<<"check-all-zones [exit-on-error]    Check all zones for correctness. Set exit-on-error to exit immediately"<<endl;
-    cout<<"                                   after finding an error in a zone."<<endl;
-    cout<<"clear-zone ZONE                    Clear all records of a zone, but keep everything else"<<endl;
-    cout<<"create-bind-db FNAME               Create DNSSEC db for BIND backend (bind-dnssec-db)"<<endl;
-    cout<<"create-slave-zone ZONE master-ip [master-ip..]"<<endl;
-    cout<<"                                   Create slave zone ZONE with master IP address master-ip"<<endl;
-    cout<<"change-slave-zone-master ZONE master-ip [master-ip..]"<<endl;
-    cout<<"                                   Change slave zone ZONE master IP address to master-ip"<<endl;
-    cout<<"create-zone ZONE [nsname]          Create empty zone ZONE"<<endl;
-    cout<<"deactivate-tsig-key ZONE NAME {master|slave}"<<endl;
-    cout<<"                                   Disable TSIG authenticated AXFR using the key NAME for ZONE"<<endl;
-    cout<<"deactivate-zone-key ZONE KEY-ID    Deactivate the key with key id KEY-ID in ZONE"<<endl;
-    cout<<"delete-rrset ZONE NAME TYPE        Delete named RRSET from zone"<<endl;
-    cout<<"delete-tsig-key NAME               Delete TSIG key (warning! will not unmap key!)"<<endl;
-    cout<<"delete-zone ZONE                   Delete the zone"<<endl;
-    cout<<"disable-dnssec ZONE                Deactivate all keys and unset PRESIGNED in ZONE"<<endl;
-    cout<<"edit-zone ZONE                     Edit zone contents using $EDITOR"<<endl;
-    cout<<"export-zone-dnskey ZONE KEY-ID     Export to stdout the public DNSKEY described"<<endl;
-    cout<<"export-zone-ds ZONE                Export to stdout all KSK DS records for ZONE"<<endl;
-    cout<<"export-zone-key ZONE KEY-ID        Export to stdout the private key described"<<endl;
-    cout<<"generate-tsig-key NAME ALGORITHM   Generate new TSIG key"<<endl;
-    cout<<"generate-zone-key {zsk|ksk} [ALGORITHM] [BITS]"<<endl;
-    cout<<"                                   Generate a ZSK or KSK to stdout with specified ALGORITHM and BITS"<<endl;
-    cout<<"get-meta ZONE [KIND ...]           Get zone metadata. If no KIND given, lists all known"<<endl;
-    cout<<"hash-zone-record ZONE RNAME        Calculate the NSEC3 hash for RNAME in ZONE"<<endl;
-#ifdef HAVE_P11KIT1
-    cout<<"hsm assign ZONE ALGORITHM {ksk|zsk} MODULE SLOT PIN LABEL"<<endl<<
-          "                                   Assign a hardware signing module to a ZONE"<<endl;
-    cout<<"hsm create-key ZONE KEY-ID [BITS]  Create a key using hardware signing module for ZONE (use assign first)"<<endl;
-    cout<<"                                   BITS defaults to 2048"<<endl;
-#endif
-    cout<<"increase-serial ZONE               Increases the SOA-serial by 1. Uses SOA-EDIT"<<endl;
-    cout<<"import-tsig-key NAME ALGORITHM KEY Import TSIG key"<<endl;
-    cout<<"import-zone-key ZONE FILE          Import from a file a private key, ZSK or KSK"<<endl;
-    cout<<"       [active|inactive] [ksk|zsk] Defaults to KSK and active"<<endl;
-    cout<<"ipdecrypt IP passphrase/key [key]  Encrypt IP address using passphrase or base64 key"<<endl;
-    cout<<"ipencrypt IP passphrase/key [key]  Encrypt IP address using passphrase or base64 key"<<endl;
-    cout<<"load-zone ZONE FILE                Load ZONE from FILE, possibly creating zone or atomically"<<endl;
-    cout<<"                                   replacing contents"<<endl;
-    cout<<"list-algorithms [with-backend]     List all DNSSEC algorithms supported, optionally also listing the crypto library used"<<endl;
-    cout<<"list-keys [ZONE]                   List DNSSEC keys for ZONE. When ZONE is unset or \"all\", display all keys for all zones"<<endl;
-    cout<<"list-zone ZONE                     List zone contents"<<endl;
-    cout<<"list-all-zones [master|slave|native]"<<endl;
-    cout<<"                                   List all zone names"<<endl;;
-    cout<<"list-tsig-keys                     List all TSIG keys"<<endl;
-    cout<<"rectify-zone ZONE [ZONE ..]        Fix up DNSSEC fields (order, auth)"<<endl;
-    cout<<"rectify-all-zones [quiet]          Rectify all zones. Optionally quiet output with errors only"<<endl;
-    cout<<"remove-zone-key ZONE KEY-ID        Remove key with KEY-ID from ZONE"<<endl;
-    cout<<"replace-rrset ZONE NAME TYPE [ttl] Replace named RRSET from zone"<<endl;
-    cout<<"       content [content..]"<<endl;
-    cout<<"secure-all-zones [increase-serial] Secure all zones without keys"<<endl;
-    cout<<"secure-zone ZONE [ZONE ..]         Add DNSSEC to zone ZONE"<<endl;
-    cout<<"set-kind ZONE KIND                 Change the kind of ZONE to KIND (master, slave native)"<<endl;
-    cout<<"set-account ZONE ACCOUNT           Change the account (owner) of ZONE to ACCOUNT"<<endl;
-    cout<<"set-nsec3 ZONE ['PARAMS' [narrow]] Enable NSEC3 with PARAMS. Optionally narrow"<<endl;
-    cout<<"set-presigned ZONE                 Use presigned RRSIGs from storage"<<endl;
-    cout<<"set-publish-cdnskey ZONE           Enable sending CDNSKEY responses for ZONE"<<endl;
-    cout<<"set-publish-cds ZONE [DIGESTALGOS] Enable sending CDS responses for ZONE, using DIGESTALGOS as signature algorithms"<<endl;
-    cout<<"                                   DIGESTALGOS should be a comma separated list of numbers, it is '2' by default"<<endl;
-    cout<<"add-meta ZONE KIND VALUE           Add zone metadata, this adds to the existing KIND"<<endl;
-    cout<<"                   [VALUE ...]"<<endl;
-    cout<<"set-meta ZONE KIND [VALUE] [VALUE] Set zone metadata, optionally providing a value. *No* value clears meta"<<endl;
-    cout<<"                                   Note - this will replace all metadata records of KIND!"<<endl;
-    cout<<"show-zone ZONE                     Show DNSSEC (public) key details about a zone"<<endl;
-    cout<<"unset-nsec3 ZONE                   Switch back to NSEC"<<endl;
-    cout<<"unset-presigned ZONE               No longer use presigned RRSIGs"<<endl;
-    cout<<"unset-publish-cdnskey ZONE         Disable sending CDNSKEY responses for ZONE"<<endl;
-    cout<<"unset-publish-cds ZONE             Disable sending CDS responses for ZONE"<<endl;
-    cout<<"test-schema ZONE                   Test DB schema - will create ZONE"<<endl;
-    cout<<desc<<endl;
-    return 0;
-  }
-
-  loadMainConfig(g_vm["config-dir"].as<string>());
-
+int run_command(vector<string> &cmds) {
   if (cmds[0] == "test-algorithm") {
     if(cmds.size() != 2) {
       cerr << "Syntax: pdnsutil test-algorithm algonum"<<endl;
@@ -3309,6 +3183,185 @@ try
     return 1;
   }
   return 0;
+}
+
+int run_command_catch_errors(vector<string> &cmds)
+try {
+  return run_command(cmds);
+}
+catch(PDNSException& ae) {
+  cerr<<"Error: "<<ae.reason<<endl;
+  return 1;
+}
+catch(std::exception& e) {
+  cerr<<"Error: "<<e.what()<<endl;
+  return 1;
+}
+catch(...)
+{
+  cerr<<"Caught an unknown exception"<<endl;
+  return 1;
+}
+
+int main(int argc, char** argv)
+try
+{
+  po::options_description desc("Allowed options");
+  desc.add_options()
+    ("help,h", "produce help message")
+    ("version", "show version")
+    ("verbose,v", "be verbose")
+    ("force", "force an action")
+    ("config-name", po::value<string>()->default_value(""), "virtual configuration name")
+    ("config-dir", po::value<string>()->default_value(SYSCONFDIR), "location of pdns.conf")
+    ("batch", po::value<string>(), "run a set of commands one per line from the specified file")
+    ("batch-ignore-errors", "ignore errors in --batch")
+    ("commands", po::value<vector<string> >());
+
+  po::positional_options_description p;
+  p.add("commands", -1);
+  po::store(po::command_line_parser(argc, argv).options(desc).positional(p).run(), g_vm);
+  po::notify(g_vm);
+
+  if (g_vm.count("version")) {
+    cout<<"pdnsutil "<<VERSION<<endl;
+    return 0;
+  }
+
+  vector<string> cmds;
+
+  ifstream batch_cmds;
+  if(g_vm.count("batch")) {
+    batch_cmds.open(g_vm["batch"].as<string>().c_str());
+    if (!batch_cmds.is_open()) {
+      cerr << "Unable to open batch file for read: " << stringerror() << endl;
+      return false;
+    }
+  } else if(g_vm.count("commands"))
+    cmds = g_vm["commands"].as<vector<string> >();
+
+  g_verbose = g_vm.count("verbose");
+
+  if((!batch_cmds.is_open() && cmds.empty()) || g_vm.count("help") || (!cmds.empty() && cmds[0] == "help")) {
+    cout<<"Usage: \npdnsutil [options] <command> [params ..]\n"<<endl;
+    cout<<"Commands:"<<endl;
+    cout<<"activate-tsig-key ZONE NAME {master|slave}"<<endl;
+    cout<<"                                   Enable TSIG authenticated AXFR using the key NAME for ZONE"<<endl;
+    cout<<"activate-zone-key ZONE KEY-ID      Activate the key with key id KEY-ID in ZONE"<<endl;
+    cout<<"add-record ZONE NAME TYPE [ttl] content"<<endl;
+    cout<<"             [content..]           Add one or more records to ZONE"<<endl;
+    cout<<"add-zone-key ZONE {zsk|ksk} [BITS] [active|inactive]"<<endl;
+    cout<<"             [rsasha1|rsasha256|rsasha512|ecdsa256|ecdsa384";
+#if defined(HAVE_LIBSODIUM) || defined(HAVE_LIBDECAF)
+    cout<<"|ed25519";
+#endif
+#ifdef HAVE_LIBDECAF
+    cout<<"|ed448";
+#endif
+    cout<<"]"<<endl;
+    cout<<"                                   Add a ZSK or KSK to zone and specify algo&bits"<<endl;
+    cout<<"backend-cmd BACKEND CMD [CMD..]    Perform one or more backend commands"<<endl;
+    cout<<"b2b-migrate OLD NEW                Move all data from one backend to another"<<endl;
+    cout<<"bench-db [filename]                Bench database backend with queries, one domain per line"<<endl;
+    cout<<"check-zone ZONE                    Check a zone for correctness"<<endl;
+    cout<<"check-all-zones [exit-on-error]    Check all zones for correctness. Set exit-on-error to exit immediately"<<endl;
+    cout<<"                                   after finding an error in a zone."<<endl;
+    cout<<"clear-zone ZONE                    Clear all records of a zone, but keep everything else"<<endl;
+    cout<<"create-bind-db FNAME               Create DNSSEC db for BIND backend (bind-dnssec-db)"<<endl;
+    cout<<"create-slave-zone ZONE master-ip [master-ip..]"<<endl;
+    cout<<"                                   Create slave zone ZONE with master IP address master-ip"<<endl;
+    cout<<"change-slave-zone-master ZONE master-ip [master-ip..]"<<endl;
+    cout<<"                                   Change slave zone ZONE master IP address to master-ip"<<endl;
+    cout<<"create-zone ZONE [nsname]          Create empty zone ZONE"<<endl;
+    cout<<"deactivate-tsig-key ZONE NAME {master|slave}"<<endl;
+    cout<<"                                   Disable TSIG authenticated AXFR using the key NAME for ZONE"<<endl;
+    cout<<"deactivate-zone-key ZONE KEY-ID    Deactivate the key with key id KEY-ID in ZONE"<<endl;
+    cout<<"delete-rrset ZONE NAME TYPE        Delete named RRSET from zone"<<endl;
+    cout<<"delete-tsig-key NAME               Delete TSIG key (warning! will not unmap key!)"<<endl;
+    cout<<"delete-zone ZONE                   Delete the zone"<<endl;
+    cout<<"disable-dnssec ZONE                Deactivate all keys and unset PRESIGNED in ZONE"<<endl;
+    cout<<"edit-zone ZONE                     Edit zone contents using $EDITOR"<<endl;
+    cout<<"export-zone-dnskey ZONE KEY-ID     Export to stdout the public DNSKEY described"<<endl;
+    cout<<"export-zone-ds ZONE                Export to stdout all KSK DS records for ZONE"<<endl;
+    cout<<"export-zone-key ZONE KEY-ID        Export to stdout the private key described"<<endl;
+    cout<<"generate-tsig-key NAME ALGORITHM   Generate new TSIG key"<<endl;
+    cout<<"generate-zone-key {zsk|ksk} [ALGORITHM] [BITS]"<<endl;
+    cout<<"                                   Generate a ZSK or KSK to stdout with specified ALGORITHM and BITS"<<endl;
+    cout<<"get-meta ZONE [KIND ...]           Get zone metadata. If no KIND given, lists all known"<<endl;
+    cout<<"hash-zone-record ZONE RNAME        Calculate the NSEC3 hash for RNAME in ZONE"<<endl;
+#ifdef HAVE_P11KIT1
+    cout<<"hsm assign ZONE ALGORITHM {ksk|zsk} MODULE SLOT PIN LABEL"<<endl<<
+          "                                   Assign a hardware signing module to a ZONE"<<endl;
+    cout<<"hsm create-key ZONE KEY-ID [BITS]  Create a key using hardware signing module for ZONE (use assign first)"<<endl;
+    cout<<"                                   BITS defaults to 2048"<<endl;
+#endif
+    cout<<"increase-serial ZONE               Increases the SOA-serial by 1. Uses SOA-EDIT"<<endl;
+    cout<<"import-tsig-key NAME ALGORITHM KEY Import TSIG key"<<endl;
+    cout<<"import-zone-key ZONE FILE          Import from a file a private key, ZSK or KSK"<<endl;
+    cout<<"       [active|inactive] [ksk|zsk] Defaults to KSK and active"<<endl;
+    cout<<"ipdecrypt IP passphrase/key [key]  Encrypt IP address using passphrase or base64 key"<<endl;
+    cout<<"ipencrypt IP passphrase/key [key]  Encrypt IP address using passphrase or base64 key"<<endl;
+    cout<<"load-zone ZONE FILE                Load ZONE from FILE, possibly creating zone or atomically"<<endl;
+    cout<<"                                   replacing contents"<<endl;
+    cout<<"list-algorithms [with-backend]     List all DNSSEC algorithms supported, optionally also listing the crypto library used"<<endl;
+    cout<<"list-keys [ZONE]                   List DNSSEC keys for ZONE. When ZONE is unset or \"all\", display all keys for all zones"<<endl;
+    cout<<"list-zone ZONE                     List zone contents"<<endl;
+    cout<<"list-all-zones [master|slave|native]"<<endl;
+    cout<<"                                   List all zone names"<<endl;;
+    cout<<"list-tsig-keys                     List all TSIG keys"<<endl;
+    cout<<"rectify-zone ZONE [ZONE ..]        Fix up DNSSEC fields (order, auth)"<<endl;
+    cout<<"rectify-all-zones [quiet]          Rectify all zones. Optionally quiet output with errors only"<<endl;
+    cout<<"remove-zone-key ZONE KEY-ID        Remove key with KEY-ID from ZONE"<<endl;
+    cout<<"replace-rrset ZONE NAME TYPE [ttl] Replace named RRSET from zone"<<endl;
+    cout<<"       content [content..]"<<endl;
+    cout<<"secure-all-zones [increase-serial] Secure all zones without keys"<<endl;
+    cout<<"secure-zone ZONE [ZONE ..]         Add DNSSEC to zone ZONE"<<endl;
+    cout<<"set-kind ZONE KIND                 Change the kind of ZONE to KIND (master, slave native)"<<endl;
+    cout<<"set-account ZONE ACCOUNT           Change the account (owner) of ZONE to ACCOUNT"<<endl;
+    cout<<"set-nsec3 ZONE ['PARAMS' [narrow]] Enable NSEC3 with PARAMS. Optionally narrow"<<endl;
+    cout<<"set-presigned ZONE                 Use presigned RRSIGs from storage"<<endl;
+    cout<<"set-publish-cdnskey ZONE           Enable sending CDNSKEY responses for ZONE"<<endl;
+    cout<<"set-publish-cds ZONE [DIGESTALGOS] Enable sending CDS responses for ZONE, using DIGESTALGOS as signature algorithms"<<endl;
+    cout<<"                                   DIGESTALGOS should be a comma separated list of numbers, it is '2' by default"<<endl;
+    cout<<"add-meta ZONE KIND VALUE           Add zone metadata, this adds to the existing KIND"<<endl;
+    cout<<"                   [VALUE ...]"<<endl;
+    cout<<"set-meta ZONE KIND [VALUE] [VALUE] Set zone metadata, optionally providing a value. *No* value clears meta"<<endl;
+    cout<<"                                   Note - this will replace all metadata records of KIND!"<<endl;
+    cout<<"show-zone ZONE                     Show DNSSEC (public) key details about a zone"<<endl;
+    cout<<"unset-nsec3 ZONE                   Switch back to NSEC"<<endl;
+    cout<<"unset-presigned ZONE               No longer use presigned RRSIGs"<<endl;
+    cout<<"unset-publish-cdnskey ZONE         Disable sending CDNSKEY responses for ZONE"<<endl;
+    cout<<"unset-publish-cds ZONE             Disable sending CDS responses for ZONE"<<endl;
+    cout<<"test-schema ZONE                   Test DB schema - will create ZONE"<<endl;
+    cout<<desc<<endl;
+    return 0;
+  }
+
+  loadMainConfig(g_vm["config-dir"].as<string>());
+
+  if( !cmds.empty() )
+    return run_command(cmds);
+  else {        // batch job
+    bool batch_ignore_errors = g_vm.count("batch-ignore-errors");
+    int max_ret = 0;
+    string line;
+    while(getline(batch_cmds, line)) {
+      trim(line);
+      boost::split(cmds, line, boost::is_any_of(" "), boost::token_compress_on);
+      //cout << line << endl;
+
+      if( cmds.empty() )
+        continue;
+
+      int ret = run_command_catch_errors(cmds);
+      if( ret && !batch_ignore_errors )
+        return ret;
+
+      if( ret > max_ret )
+        max_ret = ret;
+    }
+    return max_ret;
+  }
 }
 catch(PDNSException& ae) {
   cerr<<"Error: "<<ae.reason<<endl;
