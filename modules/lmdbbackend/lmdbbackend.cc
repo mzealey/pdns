@@ -538,24 +538,45 @@ void LMDBBackend::lookup(const QType &type, const DNSName &qdomain, DNSPacket *p
   if(zoneId < 0) {
     auto rotxn = d_tdomains->getROTransaction();
 
-    /* NOTE: as the zones are stored in the database component-reversed, we
-     * should actually use an LMDB lookup to get the nearest entry to the
-     * desired place, and check if it was a match (equal, or sub-domain) or
-     * not. In 1 lookup we can then determine whether the domain exists or not
-     * in any form. The logic for this is a little complex as you need to
-     * handle the case where you overrun the end of the btree, an exact match
-     * needs handling differently from a subdomain match, but it is possible,
-     * and quicker, to do this correctly as lmdb lookups are relatively
-     * expensive operations. */
-    DomainInfo di;
-    zoneId = rotxn.get<0>(hunt, di);
+    /* Doing a lower_bound lookup for the full query will return either:
+     * 1) The correct entry, if the key is an exact match
+     * 2) The entry AFTER the correct entry, if the key was a sub-match
+     * 3) The first entry in the database, if the domain did not exist and would have been before the first real domain
+     * 4) The end of the database, if the (sub)domain was after the last entry
+     */
+
+    string searchkey = rotxn.searchkey<0>(hunt);    // TODO: Would be nice if there was an interface to get this easily out of the lower_bound so it doesnt get calculated twice.
+
+    cout << "searching for " << searchkey << endl;
+    auto iter = rotxn.lower_bound<0>(hunt);
+    if( iter == rotxn.end() ) {         // Handle case (4) If we went past the end, go to the last proper entry
+        cout << "end" <<endl;
+        --iter;
+    }
+
+    auto foundKey = iter.getKey().get<std::string>();       // Handle case (1)
+    if( foundKey != searchkey ) {           // Handle case (2)
+        --iter;
+        if( iter == rotxn.end() )           // Handle case (3) if we went past the beginning we didn't find the zone properly it doesn't exist
+            return;
+
+        foundKey = iter.getKey().get<std::string>();
+    }
+    cout << "found: " << foundKey << endl;
+    if( searchkey.length() > foundKey.length() && searchkey.compare(0, foundKey.length(), foundKey) == 0 ) {    // hit
+        cout << foundKey << " was a hit for " << searchkey << endl;
+        zoneId = iter.getID();
+        cout << foundKey << " zone id " << zoneId << endl;
+    }
+
     if(zoneId <= 0) {
       //      cout << "Did not find zone for "<< qdomain<<endl;
       d_getcursor.reset();
       return;
     }
+
   }
-  else {
+  //else {    // TODO: Generate hunt automatically from the foundKey value if we found via the above if statement
     DomainInfo di;
     if(!d_tdomains->getROTransaction().get(zoneId, di)) {
       // cout<<"Could not find a zone with id "<<zoneId<<endl;
@@ -563,10 +584,13 @@ void LMDBBackend::lookup(const QType &type, const DNSName &qdomain, DNSPacket *p
       return;
     }
     hunt = di.zone;
-  }
-    
-  DNSName relqname = qdomain.makeRelative(hunt);
-  //  cout<<"get will look for "<<relqname<< " in zone "<<hunt<<" with id "<<zoneId<<endl;
+  //}
+
+  // TODO: Make tests for domains where a subdomain has SOA
+
+  // If we found a zone SOA then dont look at subdomains etc as we can then short-curcuit UeberBackend's lookup logic
+  DNSName relqname = type == QType::SOA ? DNSName("") : qdomain.makeRelative(hunt);
+  cout<<"get will look for "<<relqname<< " in zone "<<hunt<<" with id "<<zoneId<<endl;
   d_rotxn = getRecordsROTransaction(zoneId);
 
   compoundOrdername co;
@@ -632,6 +656,8 @@ bool LMDBBackend::getSOA(const DNSName &domain, SOAData &sd)
 {
   //  cout <<"Native getSOA called"<<endl;
   lookup(QType(QType::SOA), domain, 0, -1);
+  // TODO: How to return a short-curcuit to UeberBackend of 'we dont have this SOA at all, dont bother doing chopOff' if lookup fails? Perhaps with getAuth and a specific return type?
+
   DNSZoneRecord dzr;
   bool found=false;
   while(get(dzr)) {

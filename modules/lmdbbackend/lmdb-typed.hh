@@ -385,7 +385,11 @@ public:
       }
       iter_t& operator--()
       {
-        return genoperator(MDB_PREV_DUP, MDB_PREV);
+        if( d_end ) {
+            d_end = false;
+            return genoperator(MDB_LAST, MDB_LAST);
+        } else
+            return genoperator(MDB_PREV_DUP, MDB_PREV);
       }
 
       // get ID this iterator points to
@@ -493,6 +497,11 @@ public:
       return genfind<N>(key, MDB_SET_RANGE);
     }
 
+    template<int N>
+    std::string searchkey(const typename std::tuple_element<N, tuple_t>::type::type& key)
+    {
+        return keyConv(key);
+    }
 
     //! equal range - could possibly be expressed through genfind
     template<int N>

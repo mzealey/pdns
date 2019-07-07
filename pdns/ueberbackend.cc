@@ -46,6 +46,8 @@
 #include "dnspacket.hh"
 #include "logger.hh"
 #include "statbag.hh"
+#undef DLOG
+#define DLOG(x) x
 
 extern StatBag S;
 
